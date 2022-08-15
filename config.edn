@@ -1,6 +1,8 @@
 {:env "dev"
 :riemann-host "localhost"
 :riemann-port 5555
-:connects-path "./resources/connects"
- :traffic-path "./resources/dev"
+:connects-path "./resources/connects" 
+:ifaces-path "./resources/dev" 
+:iface "ens3"
+:timeout 5000
 }

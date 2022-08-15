@@ -1,11 +1,9 @@
 (ns liberty-monitoring.core
-
   (:gen-class)
   (:require [riemann.client :as r]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
-            [clojure.string :as str]
-            [clojure-csv.core :as csv]))
+            [clojure.string :as str]))
 
 
 (defn load-edn
@@ -20,38 +18,34 @@
     (catch RuntimeException e
       (printf "Error parsing edn file '%s': %s\n" source (.getMessage e)))))
 
-(defn take-csv
-  "Takes file name and reads data."
-  [source]
-  (with-open [file (io/reader source)]
-    (-> file
-        (slurp)
-        (csv/parse-csv))))
 
-(defn parse-ifaces
-  "Load edn from an io/reader source (filename or io/resource)."
-  [source]
-  (let [d (take-csv source)
-        ens3 (str/split (nth (nth d 2) 0) #" ")] 
+(defn ifaces-data
+  "Parses /proc/net/dev and returns a map of interface names to a map of
+   interface data." 
+  [file]
+  (let [ifaces (->> (str/split (slurp (java.io.FileReader. file)) #"\n")
+                    (map #(str/split % #" "))
+                    (mapv #(filter (fn [x] (not (str/blank? x))) %))
+                    (drop 2))]
 
-    (into {} (map #(hash-map :interface (nth % 0)
-                             :rx-bytes (nth % 1)
-                             :rx-packets (nth % 2)
-                             :rx-errs (nth % 3)
-                             :rx-drop (nth % 4)
-                             :rx-fifo (nth % 5)
-                             :rx-frame (nth % 6)
-                             :rx-compressed (nth % 7)
-                             :rx-multicast (nth % 8)
-                             :tx-bytes (nth % 9)
-                             :tx-packets (nth % 10)
-                             :tx-errs (nth % 11)
-                             :tx-drop (nth % 12)
-                             :tx-fifo (nth % 13)
-                             :tx-colls (nth % 14)
-                             :tx-carrier (nth % 15)
-                             :tx-compressed (nth % 16)) (vector (filter #(not (str/blank? %)) ens3))))))
-
+    (into {} (map #(hash-map (keyword (nth (str/split (:interface %) #":") 0)) %)
+                  (map #(zipmap [:interface
+                                 :rx-bytes
+                                 :rx-packets
+                                 :rx-errs
+                                 :rx-drop
+                                 :rx-fifo
+                                 :rx-frame
+                                 :rx-compressed
+                                 :rx-multicast
+                                 :tx-bytes
+                                 :tx-packets
+                                 :tx-errs
+                                 :tx-drop
+                                 :tx-fifo
+                                 :tx-colls
+                                 :tx-carrier
+                                 :tx-comppressed] %) ifaces)))))
 
 (defn send->riemann
   "Sends events to Riemann. 
@@ -68,8 +62,7 @@
   [config metric]
   {:service "monitoring.devices.connects"
    :tags ["connects" (:env config)]
-   :metric (:metric metric) 
-   })
+   :metric  (:metric metric)})
 
 
 (defn bytes-rx-event
@@ -78,8 +71,8 @@
   [config metric]
   {:service "monitoring.bytes.recieved"
    :tags ["bytes-rx" (:env config)]
-   :metric (Long/parseLong metric) 
-   })
+   :metric (Long/parseLong metric)})
+
 
 (defn bytes-tx-event
   "We need to build the event, for different events we are going
@@ -87,8 +80,7 @@
   [config metric]
   {:service "monitoring.bytes.transmited"
    :tags ["bytes-tx" (:env config)]
-   :metric (Long/parseLong metric) 
-   })
+   :metric (Long/parseLong metric)})
 
 
 (defn- -main
@@ -97,35 +89,21 @@
   (println "Hello, Fucking World!")
 
   (let [config (load-edn "./config.edn")
-        client (r/tcp-client (:riemann-host config) (:riemann-port config))]
+        client (r/tcp-client (:riemann-host config) (:riemann-port config))
+        iface (keyword (:iface config))]
     (loop [event-connects (connects-event config (load-edn (:connects-path config)))
-           ifaces (parse-ifaces (:traffic-path config))]
-      
-      (println "BYTES: " (:tx-bytes ifaces) (:rx-bytes ifaces))
+           ifaces (ifaces-data (:ifaces-path config))]
       
       (println "Sent event connects: " event-connects)
       (send->riemann event-connects client)
-            
-      (println "Sent event traffic rx: " (bytes-rx-event config (:rx-bytes ifaces)))
-      (send->riemann (bytes-rx-event config (:rx-bytes ifaces)) client)
-      
-      (println "Sent event traffic tx: " (bytes-tx-event config (:tx-bytes ifaces)))
-      (send->riemann (bytes-tx-event config (:tx-bytes ifaces)) client)
-      
-      
-      (Thread/sleep 30000)
+
+      (println "Sent event traffic rx: " (bytes-rx-event config(-> iface ifaces :rx-bytes)))
+      (send->riemann (bytes-rx-event config (-> iface ifaces :rx-bytes)) client)
+
+      (println "Sent event traffic tx: " (bytes-tx-event config (-> iface ifaces :tx-bytes)))
+      (send->riemann (bytes-tx-event config (-> iface ifaces :tx-bytes)) client)
+
+
+      (Thread/sleep (:timeout config))
       (recur (connects-event config (load-edn (:connects-path config)))
-             (parse-ifaces (:traffic-path config))))))
-
-
-
-
-;(-main)
-
-;(def config (load-edn "./config.edn")) 
-;(def client (r/tcp-client "localhost" 5555))
-;(def ifaces (parse-ifaces (:traffic-path config)))
-;(type (:tx-bytes ifaces))
-;(send->riemann (bytes-tx-event config (:tx-bytes ifaces)) client)
-;
-;(Long/parseLong (:tx-bytes ifaces))
+             (ifaces-data (:ifaces-path config))))))
