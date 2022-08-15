@@ -1,0 +1,12 @@
+[Unit]
+Description=liberty monitoring agent
+After=network.target
+
+[Service]
+Environment="JAR=/root/monitoring/liberty.jar"
+WorkingDirectory=/root/monitoring
+ExecStart=/home/monitoring/start.sh
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
