@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./media/logofckrkn.jpg" width="350" title="FuckRKN1">
+</p>
+
 # liberty-monitoring
 
 FIXME: description
