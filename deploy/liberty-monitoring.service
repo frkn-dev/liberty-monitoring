@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Environment="JAR=/root/monitoring/liberty.jar"
 WorkingDirectory=/root/monitoring
-ExecStart=/home/monitoring/start.sh
+ExecStart=/root/monitoring/start.sh
 Type=simple
 
 [Install]

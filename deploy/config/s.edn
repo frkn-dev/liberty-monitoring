@@ -1,6 +1,6 @@
-{:env "dev"
+{:env "prod"
 :riemann-host "localhost"
 :riemann-port 5555 
 :timeout 500
-:type ["storage" "vpn" "web"]
+:type ["storage"]
 }
