@@ -1,0 +1,48 @@
+{:paths ["tasks"]
+	:tasks
+ {:requires ([babashka.fs :as fs] 
+ 	           [clojure.string :as str]
+ 	           [tasks :as t])
+
+   :init (def -version "0.2.0")
+
+   -version "0.2.0"
+
+
+  clean (do
+          (println "Removing target folder.")
+          (fs/delete-tree "target"))
+  
+  uberjar (do
+            (println "Making uberjar")
+            (shell "lein" "uberjar"))
+  
+  uberjar:clean (do (run 'clean)
+                    (run 'uberjar))
+  
+  lrepl (shell "lein" "repl")
+
+  deploy:ru (do (println "Deploy -> RU")
+                (t/files->server 2 "ru" -version))
+
+  deploy:lt (do (println "Deploy -> LT")
+                (t/files->server 5 "lt" -version))
+
+  deploy:s  (do (println "Deploy -> Service")
+                (t/files->server 1 "s" -version))
+
+  deploy:d  (do (println "Deploy -> Dev")
+                (t/files->server 1 "d" -version))
+
+  deploy:prod (do (run 'uberjar:clean)
+              (run 'deploy:ru {:parallel true})
+              (run 'deploy:lt {:parallel true})
+              (run 'deploy:s {:parallel true}))
+
+  deploy  (do (run 'uberjar:clean)
+              (run 'deploy:ru {:parallel true})
+              (run 'deploy:lt {:parallel true})
+              (run 'deploy:s {:parallel true})
+              (run 'deploy:d {:parallel true}))
+
+  }}
