@@ -26,7 +26,7 @@
                 (t/files->server 2 "ru" -version))
 
   deploy:lt (do (println "Deploy -> LT")
-                (t/files->server 5 "lt" -version))
+                (t/files->server 6 "lt" -version))
 
   deploy:s  (do (println "Deploy -> Service")
                 (t/files->server 1 "s" -version))
